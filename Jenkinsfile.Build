@@ -1,0 +1,25 @@
+pipeline {
+  agent {
+    docker {
+      label 'docker'
+      image 'taplab-build:0.9.1'
+      registryUrl 'https://docker-taplab.di2e.net'
+      // These credentials are for the zJenkins user provided by DI2E
+      registryCredentialsId 'cdd1102c-beb3-4039-a3a5-a03d5ff6035e'
+      // This relies on all DI2E nodes having SonarQube in the same place
+      args "-v /var/run/docker.sock:/var/run/docker.sock"
+    }
+  }
+  stages {
+    stage('Test Container') {
+      steps {
+	// List one or more remote containers you'd like to generate Anchore reports against
+	// add '-f' flag after the '-p' flag below to fail the script on a default policy assessment (Gateway Check)
+	sh 'curl -s https://raw.githubusercontent.com/anchore/ci-tools/v0.6.0/scripts/inline_scan | sudo bash -s -- -p -r alpine:latest ubuntu:latest centos:latest'
+        archiveArtifacts artifacts: 'anchore-reports/*.*', onlyIfSuccessful: true, allowEmptyArchive: true
+        // Need to remove Anchore report files as they were generated with sudo privs the initial git clean on jobs will break
+        sh 'sudo rm -Rf anchore-reports'
+      }
+    }
+  }
+}
